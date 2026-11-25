@@ -1,0 +1,21 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dot { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; }
+.toggle { cursor: pointer; transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease); }
+.toggle:hover { border-color: var(--color-border-strong); color: var(--color-text); }
+.on { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent-hover); }

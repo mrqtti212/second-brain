@@ -1,0 +1,12 @@
+.state {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-8) var(--space-4); text-align: center;
+  color: var(--color-text-muted); font-size: var(--text-sm);
+}
+.error { color: var(--color-danger); background: var(--color-danger-soft); border-radius: var(--radius-md); padding: var(--space-4); }
+.spinner {
+  width: 1rem; height: 1rem; border-radius: 50%;
+  border: 2px solid var(--color-border-strong); border-top-color: var(--color-accent);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

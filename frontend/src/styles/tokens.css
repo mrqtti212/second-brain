@@ -1,0 +1,77 @@
+/* Design tokens do Second Brain. Toda cor, espaçamento e raio vem daqui. */
+:root {
+  color-scheme: dark;
+
+  /* Superfícies (grafite) */
+  --color-bg: #0f1012;
+  --color-surface-1: #16171a;
+  --color-surface-2: #1c1d21;
+  --color-surface-3: #24262b;
+  --color-border: #2b2d33;
+  --color-border-strong: #3a3d45;
+
+  /* Texto */
+  --color-text: #ececef;
+  --color-text-muted: #a0a3ad;
+  --color-text-subtle: #6f727c;
+
+  /* Acento único */
+  --color-accent: #6d7cff;
+  --color-accent-hover: #8390ff;
+  --color-accent-soft: rgba(109, 124, 255, 0.14);
+  --color-on-accent: #0b0c10;
+
+  /* Estados */
+  --color-success: #4fc38a;
+  --color-warning: #e0a94a;
+  --color-danger: #ef6a6a;
+  --color-danger-soft: rgba(239, 106, 106, 0.12);
+
+  /* Tipografia */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --leading-tight: 1.25;
+  --leading-normal: 1.55;
+
+  /* Espaçamento (base 4px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Bordas */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.5);
+
+  /* Movimento */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+
+  /* Layout */
+  --sidebar-width: 15.5rem;
+  --topbar-height: 4rem;
+  --content-max: 72rem;
+}
