@@ -1,8 +1,9 @@
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Dimensão da coluna `chunk_embeddings.embedding` (migration 0007). É fixa no esquema:
 # trocar de modelo para outra dimensão exige uma migration nova e regerar os vetores.
@@ -23,7 +24,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://secondbrain:change-me-locally@localhost:5432/secondbrain"
     )
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # NoDecode: o pydantic-settings não tenta ler o valor do ambiente/.env como JSON antes do validador,
+    # senão `CORS_ORIGINS=a,b` (o formato do .env.example) falharia. O validador aceita as duas formas.
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     # Documentos (PDF). O caminho relativo é resolvido a partir do diretório de execução.
     document_storage_path: str = "storage/documents"
@@ -84,8 +87,11 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_origins(cls, value: object) -> object:
-        if isinstance(value, str) and not value.strip().startswith("["):
-            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                return json.loads(text)  # lista em JSON: ["http://a", "http://b"]
+            return [item.strip() for item in text.split(",") if item.strip()]
         return value
 
 
