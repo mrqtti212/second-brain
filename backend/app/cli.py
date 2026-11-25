@@ -7,6 +7,7 @@
     python -m app.cli process-pending --include-processing  # com a API PARADA: retoma também `processing`
     python -m app.cli embed-pending                     # gera os embeddings que faltam (exige EMBEDDINGS_ENABLED=true)
     python -m app.cli embed-pending --document-id UUID  # só um documento
+    python -m app.cli check-db                          # confere se o banco está pronto (somente leitura; não migra)
     python -m app.cli download-embedding-model          # MANUAL: baixa o modelo local (revisão fixa, SHA-256 verificado)
     python -m app.cli download-embedding-model --from-dir DIR  # instala de uma cópia local, sem baixar nada
 
@@ -26,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import SessionLocal
 from app.models.document import Document, DocumentStatus
+from app.db.check import check_database
 from app.services import documents as documents_service
 from app.services.embedding_model import ModelFileError, install_model
 from app.services.embedding_tasks import documents_pending_embedding, embed_document
@@ -106,6 +108,7 @@ def main(
     )
     embedding = sub.add_parser("embed-pending", help="Gera agora os embeddings dos trechos que ainda não têm vetor.")
     embedding.add_argument("--document-id", type=uuid.UUID, help="Apenas este documento.")
+    sub.add_parser("check-db", help="Confere se o banco está acessível e com as migrations em dia (somente leitura).")
     download = sub.add_parser(
         "download-embedding-model",
         help="Instala o modelo local de embeddings (nunca roda sozinho; só o modelo é baixado, nenhum texto sai).",
@@ -119,6 +122,11 @@ def main(
         count = recover_interrupted(session_factory, InlineDispatcher(processor), include_processing=args.include_processing)
         print(f"{count} documento(s) enviado(s) ao processamento.")
         return 0
+
+    if args.command == "check-db":
+        status = check_database((settings or get_settings()).database_url)
+        print(("✓ " if status.ready else "✗ ") + status.message, file=sys.stdout if status.ready else sys.stderr)
+        return status.code
 
     if args.command == "download-embedding-model":
         destination = (args.dest or Path((settings or get_settings()).embedding_model_path)).expanduser().resolve()

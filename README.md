@@ -10,7 +10,7 @@ Roda localmente, sem Supabase, Firebase ou outro serviço externo no lugar do ba
 **Fase 3.2.1 (estrutura de documentos: trechos, metadados e duplicatas).** Sobre a Fase 3.1 (importação de documentos), cada PDF passa a ser dividido em trechos (chunks) rastreáveis até a página de origem, o título e a organização do documento podem ser editados depois da importação, e o mesmo arquivo (SHA-256) não é importado duas vezes. **Ainda não existem embeddings, busca semântica, RAG nem OCR.**
 
 **Fase 3.1.** Importação de PDFs com armazenamento local do original e do texto extraído (por página) no PostgreSQL, listagem, visualização, download, exclusão e busca integrada às notas. Vem sobre a Fase 2 (notas, categorias, projetos, etiquetas e busca em português com índice GIN) e a Fase 1 (FastAPI, React, Alembic, pgvector preparado).
-Não há autenticação, OCR, busca semântica nem integração com IA generativa ainda. A geração de embeddings dos trechos e o provedor local existem, mas vêm desligados por padrão e a busca continua só por palavras-chave (ver "Embeddings dos trechos"). O bloco "Assistente de IA" é uma reserva visual. Os documentos de exemplo do dashboard são dados de demonstração temporários e só aparecem com o backend offline.
+Não há autenticação, OCR, busca semântica nem integração com IA generativa ainda. A geração de embeddings dos trechos e o provedor local existem, mas vêm desligados por padrão e a busca continua só por palavras-chave (ver "Embeddings dos trechos"). O dashboard mostra apenas dados reais da API (contagens, itens recentes e PDFs em processamento); com a API ou o banco fora do ar, ele diz o que fazer em vez de exibir exemplos. O antigo bloco "Assistente de IA" (que não fazia nada) foi removido e só volta quando houver uma função real por trás.
 
 ## Stack
 
@@ -115,10 +115,23 @@ npm run dev
 Acesse http://localhost:5173. A documentação interativa da API fica em http://localhost:8000/docs.
 O Vite encaminha `/api` para o backend (`VITE_BACKEND_PROXY`).
 
+### Executar como aplicativo (uma porta só)
+
+Depois de subir o banco e aplicar as migrations (passos 1 e 2 acima), um comando inicia a API **servindo a interface compilada**, em http://127.0.0.1:8000:
+
+```bash
+./scripts/run-app.sh            # compila a interface se frontend/dist não existir
+./scripts/run-app.sh --build    # força nova compilação
+```
+
+O script **não aplica migrations, não instala dependências e não sobe o banco**. Ele confere o ambiente e o banco (somente leitura, com `python -m app.cli check-db`) e, se algo faltar, explica o que fazer e para sem alterar nada: venv do backend ausente, PostgreSQL inacessível, banco vazio ou com migrations atrasadas, `frontend/node_modules` ausente. `PORT` e `HOST` mudam o endereço (padrão `127.0.0.1:8000`, só local: não há autenticação, então não exponha a porta na rede). Por baixo, ele define `FRONTEND_DIST_PATH`, que faz a API servir `frontend/dist` (rotas do React e arquivos), sem tirar a prioridade de `/api`, `/docs` e `/openapi.json`; sem essa variável nada muda.
+
 ## Comandos úteis
 
 | Onde | Comando | O que faz |
 |---|---|---|
+| raiz | `./scripts/run-app.sh` | inicia o aplicativo (API + interface) numa porta; confere o banco e para se faltar algo |
+| `backend/` | `python -m app.cli check-db` | confere se o banco está acessível e com as migrations em dia (somente leitura) |
 | `backend/` | `pytest` | testes da API em SQLite em memória (os testes de busca com termo são pulados) |
 | `backend/` | `alembic revision --autogenerate -m "msg"` | gera migration |
 | `backend/` | `TEST_DATABASE_URL=postgresql+psycopg://…/nome_test pytest` | suíte completa, incluindo a busca textual (ver [Testes](#testes)) |

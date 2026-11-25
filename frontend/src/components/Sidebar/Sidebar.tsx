@@ -1,4 +1,4 @@
-import { Brain, FolderOpen, LayoutDashboard, Library, Sparkles, Tags } from 'lucide-react'
+import { Brain, FolderOpen, LayoutDashboard, Library, Tags } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useBackend } from '../../features/backend/backend-context'
 import { Badge } from '../Badge/Badge'
@@ -9,7 +9,6 @@ const NAV = [
   { to: '/library', label: 'Biblioteca', icon: Library },
   { to: '/organize', label: 'Organizar', icon: Tags },
   { to: '/documents', label: 'Documentos', icon: FolderOpen },
-  { to: '/assistant', label: 'Assistente IA', icon: Sparkles },
 ]
 
 interface SidebarProps {

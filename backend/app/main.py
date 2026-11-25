@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.spa import SPAStaticFiles
 from app.db.session import SessionLocal
 from app.services.embedding_tasks import EmbeddingRunner, ThreadPoolEmbeddingDispatcher, recover_pending_embeddings
 from app.services.embeddings import EmbeddingConfigError, build_provider
@@ -101,6 +103,14 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor."})
 
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    # Montado por último: as rotas da API e da documentação têm prioridade sobre o frontend.
+    if settings.frontend_dist_path.strip():
+        dist = Path(settings.frontend_dist_path).expanduser().resolve()
+        if (dist / "index.html").is_file():
+            app.mount("/", SPAStaticFiles(directory=dist, reserved_prefixes=(settings.api_prefix,)), name="frontend")
+        else:
+            logger.warning("FRONTEND_DIST_PATH=%s não tem index.html; o frontend não será servido (rode npm run build).", dist)
     return app
 
 

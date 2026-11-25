@@ -9,20 +9,16 @@ import styles from './NoteCard.module.css'
 
 interface NoteCardProps {
   note: SearchResult
-  /** Demonstração: sem link para uma nota que não existe no backend. */
-  linkable?: boolean
 }
 
 /** Cartão de um resultado da biblioteca: nota ou documento. */
-export function NoteCard({ note, linkable = true }: NoteCardProps) {
+export function NoteCard({ note }: NoteCardProps) {
   const isDocument = note.type === 'document'
   const href = isDocument ? `/documents/${note.id}` : `/notes/${note.id}`
-  const title = linkable ? (
+  const title = (
     <Link to={href} className={styles.link}>
       {note.title}
     </Link>
-  ) : (
-    note.title
   )
   const TypeIcon = isDocument ? FileText : StickyNote
 

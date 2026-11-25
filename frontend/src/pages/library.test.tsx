@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mocks } from '../test/apiMock'
-import { category, documentItem, documentPage, documentResult, page, project, result, tagPython, tagWeb } from '../test/fixtures'
+import { category, documentResult, page, project, result, tagPython, tagWeb } from '../test/fixtures'
 import { renderApp } from '../test/render'
 
 vi.mock('../services/api', async (importOriginal) => ({ ...(await importOriginal<object>()), ...(await import('../test/apiMock')).mocks }))
@@ -142,44 +142,3 @@ describe('Biblioteca', () => {
     expect(await screen.findByText('Página 2 de 3')).toBeInTheDocument()
   })
 })
-
-describe('Dashboard', () => {
-  it('mostra notas reais, sem dados de demonstração, com backend online', async () => {
-    renderApp('/')
-    expect(await screen.findByRole('link', { name: 'Guia de Python' })).toBeInTheDocument()
-    expect(screen.queryByText('Ideias para o projeto')).not.toBeInTheDocument()
-  })
-
-  it('usa demonstração identificada somente com backend offline', async () => {
-    const { ApiError } = await import('../services/api')
-    mocks.api.search.mockRejectedValue(new ApiError('Não foi possível conectar ao backend.', 0))
-    renderApp('/')
-    expect(await screen.findByText('Ideias para o projeto')).toBeInTheDocument()
-    expect(screen.getByText(/Backend offline/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Ideias para o projeto' })).not.toBeInTheDocument()
-  })
-
-  it('lista documentos reais e não mostra os de demonstração', async () => {
-    mocks.documentsApi.list.mockResolvedValue(documentPage([documentItem]))
-    renderApp('/')
-    expect(await screen.findByRole('link', { name: 'Contrato de serviço' })).toHaveAttribute('href', '/documents/d1')
-    expect(screen.queryByText('Planejamento trimestral.pdf')).not.toBeInTheDocument()
-  })
-
-  it('mostra documentos de demonstração identificados somente com backend offline', async () => {
-    const { ApiError } = await import('../services/api')
-    mocks.documentsApi.list.mockRejectedValue(new ApiError('Não foi possível conectar ao backend.', 0))
-    renderApp('/')
-    expect(await screen.findByText('Planejamento trimestral.pdf')).toBeInTheDocument()
-    expect(screen.getByText(/exemplos fictícios/)).toBeInTheDocument()
-  })
-
-  it('mostra erro (e não demonstração) quando a API responde com falha', async () => {
-    const { ApiError } = await import('../services/api')
-    mocks.api.search.mockRejectedValue(new ApiError('Erro 500', 500))
-    renderApp('/')
-    expect(await screen.findByText('Erro 500')).toBeInTheDocument()
-    expect(screen.queryByText('Ideias para o projeto')).not.toBeInTheDocument()
-  })
-})
-

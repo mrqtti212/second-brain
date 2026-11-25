@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '../layouts/AppLayout'
-import { AssistantPage } from '../pages/AssistantPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { DocumentsPage } from '../pages/DocumentsPage'
 import { DocumentUploadPage } from '../pages/DocumentUploadPage'
@@ -25,7 +24,6 @@ export const appRoutes = [
       { path: 'documents', element: <DocumentsPage /> },
       { path: 'documents/new', element: <DocumentUploadPage /> },
       { path: 'documents/:id', element: <DocumentViewPage /> },
-      { path: 'assistant', element: <AssistantPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -114,7 +114,7 @@ A consulta usa `websearch_to_tsquery` com o termo como parâmetro (sem concatena
 | `layouts/` | `AppLayout` (sidebar fixa no desktop, gaveta no mobile, topbar) |
 | `pages/` | uma página por rota |
 | `routes/` | definição do React Router |
-| `features/` | `backend/` (estado do /health), `library/` (formulário de nota), `organization/` (gerenciador de categorias/projetos/etiquetas), `dashboard/` (dados de demonstração) |
+| `features/` | `backend/` (estado do /health), `library/` (formulário de nota), `organization/` (gerenciador de categorias/projetos/etiquetas) |
 | `hooks/` | `useAsync` (carregamento/erro/recarga por chave), `useDebouncedValue` |
 | `services/` | cliente HTTP (`api.ts`) |
 | `types/` | tipos TypeScript |
@@ -122,7 +122,9 @@ A consulta usa `websearch_to_tsquery` com o termo como parâmetro (sem concatena
 Não há cache global de notas: cada tela busca o que precisa pela API (`useAsync`), e a fonte da verdade é o backend. Sem `localStorage`.
 Rotas: `/documents` (lista com busca por nome e filtros), `/documents/new` (importação), `/documents/:id` (metadados, texto por página, download, exclusão), `/` dashboard, `/library` biblioteca (busca e filtros na URL: `q`, `type`, `category`, `project`, `tag`, `page`; notas e documentos juntos), `/notes/new`, `/notes/:id`, `/notes/:id/edit`, `/organize`.
 O editor de nota inicia o formulário com os valores da nota e envia todos os campos no PATCH, então categoria, projeto e etiquetas são preservados ao editar só o texto. O sucesso só é exibido depois da resposta da API.
-Dados de demonstração vivem em `features/dashboard/demoData.ts` e são sinalizados como temporários na interface.
+**Dashboard (`/`).** Só dados reais: busca em destaque (leva à biblioteca com `?q=`), atalhos "Nova nota" e "Importar PDF", contagens de notas e documentos e os PDFs `pending`/`processing`/`failed` (cinco chamadas em paralelo a `/api/search` e `/api/documents`, sem endpoint novo), e "Atualizados recentemente" (notas e documentos). Enquanto houver PDF em processamento, os números se atualizam sozinhos (`usePolling`). Se a API não responde ou o banco está indisponível (`/api/health`), mostra o problema e o comando para resolver, sem dados de exemplo. Não há mais dados de demonstração nem a rota `/assistant`: o antigo painel "Assistente de IA" não tinha função e foi removido; a Fase 5 o reintroduz com uma função real.
+
+**Interface servida pela API (opcional).** `app/core/spa.py` (`SPAStaticFiles`) monta `frontend/dist` em `/` quando `FRONTEND_DIST_PATH` aponta para uma pasta com `index.html`. É montado depois das rotas, então `/api`, `/docs` e `/openapi.json` têm prioridade; rotas do React (caminhos sem extensão) devolvem o `index.html`, e arquivos ou caminhos da API inexistentes continuam 404. `scripts/run-app.sh` usa isso e antes roda `app/db/check.py` (`python -m app.cli check-db`), que **só lê**: informa banco inacessível (sem expor a senha), vazio, atrasado ou com revisão desconhecida, e nunca cria tabelas nem aplica migrations.
 
 ## Pontos de extensão previstos
 

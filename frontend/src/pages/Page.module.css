@@ -68,3 +68,26 @@ fieldset.tagRow { border: 0; padding: 0; min-width: 0; }
 .duplicate strong { color: var(--color-text); }
 .editBox { max-width: 44rem; padding: var(--space-4); margin-bottom: var(--space-4); background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
 code { font-family: var(--font-mono); font-size: 0.92em; background: var(--color-surface-3); padding: 1px 4px; border-radius: 4px; }
+
+/* --- Dashboard --- */
+.hero {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+}
+.heroSearch { flex: 1 1 min(22rem, 100%); min-width: 0; display: flex; gap: var(--space-2); }
+.heroSearch input {
+  flex: 1; min-width: 0; padding: var(--space-3) var(--space-4);
+  background: var(--color-bg); color: var(--color-text);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-base);
+}
+.heroSearch input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.heroActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.stats { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.stat {
+  display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4);
+  background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.stat:hover { border-color: var(--color-border-strong); }
+.stat strong { font-size: var(--text-xl); }
+.stat span { color: var(--color-text-muted); font-size: var(--text-sm); }

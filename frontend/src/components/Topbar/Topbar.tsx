@@ -11,8 +11,10 @@ interface TopbarProps {
 export function Topbar({ onMenu }: TopbarProps) {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  // A biblioteca tem seu próprio campo de busca.
-  const inLibrary = useLocation().pathname.startsWith('/library')
+  // O dashboard e a biblioteca têm seu próprio campo de busca.
+  const { pathname } = useLocation()
+  const onDashboard = pathname === '/'
+  const hasOwnSearch = onDashboard || pathname.startsWith('/library')
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -26,7 +28,7 @@ export function Topbar({ onMenu }: TopbarProps) {
         <Menu size={18} aria-hidden />
       </Button>
 
-      {inLibrary ? (
+      {hasOwnSearch ? (
         <div className={styles.spacer} />
       ) : (
         <form className={styles.search} onSubmit={submit} role="search">
@@ -41,10 +43,13 @@ export function Topbar({ onMenu }: TopbarProps) {
         </form>
       )}
 
-      <LinkButton variant="primary" to="/notes/new">
-        <Plus size={16} aria-hidden />
-        <span className={styles.newLabel}>Nova nota</span>
-      </LinkButton>
+      {/* O dashboard já tem "Nova nota" no seu próprio bloco de ações. */}
+      {!onDashboard && (
+        <LinkButton variant="primary" to="/notes/new">
+          <Plus size={16} aria-hidden />
+          <span className={styles.newLabel}>Nova nota</span>
+        </LinkButton>
+      )}
     </header>
   )
 }

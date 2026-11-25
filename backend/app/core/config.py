@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # senão `CORS_ORIGINS=a,b` (o formato do .env.example) falharia. O validador aceita as duas formas.
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    # Frontend compilado (pasta `frontend/dist`) servido pela própria API, numa porta só. Vazio = desligado
+    # (o padrão: use o servidor de desenvolvimento do Vite). `scripts/run-app.sh` define este valor.
+    frontend_dist_path: str = ""
+
     # Documentos (PDF). O caminho relativo é resolvido a partir do diretório de execução.
     document_storage_path: str = "storage/documents"
     max_upload_mb: int = Field(default=20, ge=1, le=500)
