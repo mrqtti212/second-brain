@@ -32,7 +32,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.db.session import SessionLocal
 from app.models.document import Document, DocumentChunk, DocumentPage, DocumentStatus
-from app.services import chunker, pdf, search
+from app.services import chunker, embedding_tasks, pdf, search
 from app.services import documents as documents_service
 from app.services.storage import LocalStorage, get_storage
 
@@ -104,18 +104,23 @@ def _store_result(
     document = db.get(Document, document_id)
     if document is None:  # excluído durante o processamento
         return DELETED
+    # Vetores dos trechos atuais, guardados antes de apagá-los: trechos novos de texto idêntico os herdam.
+    saved_embeddings = embedding_tasks.snapshot_embeddings(db, document_id)
     # Trechos antes das páginas: a FK dos trechos aponta para as páginas.
     db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document_id))
     db.execute(delete(DocumentPage).where(DocumentPage.document_id == document_id))
     db.add_all(DocumentPage(document_id=document_id, page_number=i, text=t) for i, t in enumerate(texts, start=1))
     db.flush()  # páginas existem antes dos trechos
-    db.add_all(documents_service._chunk_rows(document_id, specs))
+    new_chunks = documents_service._chunk_rows(document_id, specs)
+    db.add_all(new_chunks)
     document.page_count = page_count
     document.has_text = any(texts)
     document.error_message = None
     document.status = DocumentStatus.COMPLETED.value  # só aqui: páginas e trechos já estão na transação
     document.updated_at = func.now()
     db.flush()
+    if saved_embeddings:
+        embedding_tasks.restore_embeddings(db, new_chunks, saved_embeddings)
     search.refresh_documents(db, [document_id])
     db.commit()
     return COMPLETED
@@ -158,14 +163,23 @@ class DocumentProcessor:
         session_factory: Callable[[], Session] = SessionLocal,
         storage_factory: Callable[[], LocalStorage] = get_storage,
         settings_factory: Callable[[], Settings] = get_settings,
+        on_completed: Callable[[uuid.UUID], None] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._storage_factory = storage_factory
         self._settings_factory = settings_factory
+        # Chamado depois de o documento ficar `completed` (geração de embeddings). Nunca afeta o resultado.
+        self._on_completed = on_completed
 
     def process(self, document_id: uuid.UUID) -> str:
         with self._session_factory() as db:
-            return process_document(db, self._storage_factory(), self._settings_factory(), document_id)
+            result = process_document(db, self._storage_factory(), self._settings_factory(), document_id)
+        if result == COMPLETED and self._on_completed is not None:
+            try:
+                self._on_completed(document_id)
+            except Exception:  # noqa: BLE001 - o documento já está concluído; embeddings são uma etapa à parte
+                logger.exception("Não foi possível iniciar os embeddings do documento %s", document_id)
+        return result
 
 
 class Dispatcher(Protocol):

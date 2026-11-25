@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -37,6 +37,8 @@ requires_postgres = pytest.mark.skipif(
 def session_factory() -> Iterator[sessionmaker[Session]]:
     if TEST_DATABASE_URL:
         engine = create_engine(TEST_DATABASE_URL)
+        with engine.begin() as connection:  # `chunk_embeddings` usa o tipo vector (pgvector)
+            connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     else:
         engine = create_engine(
             "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool

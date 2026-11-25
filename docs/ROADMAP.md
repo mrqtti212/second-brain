@@ -30,6 +30,7 @@ Ressalvas: o pool **não é uma fila durável** e pressupõe um único processo 
 - OCR opcional para PDFs digitalizados.
 
 ## Fase 4: Busca semântica
+Em andamento, por etapas. **Etapa C pronta:** provedor local `intfloat/multilingual-e5-small` (ONNX, CPU, revisão fixa e SHA-256 verificado), instalação manual do modelo e avaliação de qualidade em uma amostra pequena em português (sem prova de qualidade geral; ver README). **Etapa B pronta:** tarefa `embed_document` (idempotente, em lotes, com repetição de falhas passageiras), reaproveitamento de vetores por hash no reprocessamento e entre documentos, comando `embed-pending` e retomada na inicialização, testada com o provedor falso. **Etapa A pronta:** migration `0007` (`chunk_embeddings`, `vector(384)`, HNSW por cosseno), modelo, contrato `EmbeddingProvider`, provedor falso determinístico e configuração desligada por padrão. Modelo candidato: `intfloat/multilingual-e5-small` (local, em CPU, sem enviar texto para fora). Faltam: modos de busca semântica e híbrida, opcionais e desligados por padrão (D), interface e documentação (E).
 - Embeddings, colunas `vector` e índice HNSW.
 - Busca híbrida (palavra-chave + significado).
 

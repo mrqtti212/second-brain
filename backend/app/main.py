@@ -10,6 +10,8 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import SessionLocal
+from app.services.embedding_tasks import EmbeddingRunner, ThreadPoolEmbeddingDispatcher, recover_pending_embeddings
+from app.services.embeddings import EmbeddingConfigError, build_provider
 from app.services.processing import DocumentProcessor, ThreadPoolDispatcher, recover_interrupted
 
 logger = logging.getLogger("second_brain")
@@ -17,11 +19,35 @@ logger = logging.getLogger("second_brain")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Cria o pool de processamento de documentos e retoma o que ficou para trás."""
+    """Cria os pools de processamento de documentos e de embeddings e retoma o que ficou para trás."""
     settings = get_settings()
     dispatcher = None
+    embedding_dispatcher = None
+    app.state.embedding_dispatcher = None
+    if settings.embeddings_enabled:
+        try:
+            provider = build_provider(settings)
+        except EmbeddingConfigError as exc:  # configuração inválida não impede a API de subir
+            provider = None
+            logger.error("Embeddings desativados nesta execução: %s", exc)
+        if provider is not None:
+            embedding_dispatcher = ThreadPoolEmbeddingDispatcher(
+                EmbeddingRunner(SessionLocal, provider), settings.embedding_workers
+            )
+            app.state.embedding_dispatcher = embedding_dispatcher
+            if settings.recover_on_startup:
+                try:
+                    pending = recover_pending_embeddings(SessionLocal, embedding_dispatcher, provider.model)
+                    if pending:
+                        logger.info("%d documento(s) com embeddings pendentes enviado(s) à geração", pending)
+                except Exception:  # noqa: BLE001 - banco indisponível não impede a API de subir
+                    logger.exception("Não foi possível retomar embeddings pendentes")
     if settings.document_processing_enabled:
-        dispatcher = ThreadPoolDispatcher(DocumentProcessor(SessionLocal), settings.document_workers)
+        # Ao concluir um documento, os embeddings dos trechos novos são gerados em outro pool.
+        processor = DocumentProcessor(
+            SessionLocal, on_completed=embedding_dispatcher.submit if embedding_dispatcher else None
+        )
+        dispatcher = ThreadPoolDispatcher(processor, settings.document_workers)
         app.state.dispatcher = dispatcher
         if settings.recover_on_startup:
             try:
@@ -33,6 +59,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     if dispatcher is not None:
         dispatcher.shutdown()
+    if embedding_dispatcher is not None:
+        embedding_dispatcher.shutdown()
+        app.state.embedding_dispatcher = None
 
 
 def create_app() -> FastAPI:

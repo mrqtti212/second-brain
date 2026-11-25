@@ -24,7 +24,7 @@ from app.models.document import Document, DocumentChunk, DocumentPage, DocumentS
 from app.models.project import Project
 from app.models.tag import Tag
 from app.schemas.document import DocumentUpdate
-from app.services import chunker, pdf, search
+from app.services import chunker, embedding_tasks, pdf, search
 from app.services.storage import LocalStorage
 
 logger = logging.getLogger("second_brain.documents")
@@ -110,8 +110,13 @@ def rebuild_chunks(db: Session, settings: Settings, document_id: uuid.UUID) -> i
     ]
     specs = chunker.chunk_pages(pages, chunking_config(settings))  # pode falhar: ainda nada alterado
     try:
+        saved_embeddings = embedding_tasks.snapshot_embeddings(db, document_id)  # trechos iguais herdam os vetores
         db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document_id))
-        db.add_all(_chunk_rows(document_id, specs))
+        new_chunks = _chunk_rows(document_id, specs)
+        db.add_all(new_chunks)
+        if saved_embeddings:
+            db.flush()
+            embedding_tasks.restore_embeddings(db, new_chunks, saved_embeddings)
         db.commit()
     except BaseException:
         db.rollback()

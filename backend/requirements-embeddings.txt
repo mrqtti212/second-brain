@@ -1,0 +1,7 @@
+# Embeddings locais (provedor ONNX em CPU). OPCIONAL: só é preciso com EMBEDDINGS_ENABLED=true
+# e EMBEDDING_PROVIDER=local. Instale no venv do backend:
+#   pip install -r requirements-embeddings.txt
+# Versões fixas (as que foram validadas).
+onnxruntime==1.32.0
+tokenizers==0.23.3
+numpy==2.5.5

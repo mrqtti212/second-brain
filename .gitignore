@@ -60,6 +60,10 @@ id_rsa*
 *.p12
 *.pfx
 
+# Modelos de IA baixados localmente (centenas de MB; nunca versionar)
+backend/models/
+*.onnx
+
 # Configuração local de ferramentas
 .claude/
 

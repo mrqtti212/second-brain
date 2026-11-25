@@ -5,10 +5,12 @@ Roda localmente, sem Supabase, Firebase ou outro serviço externo no lugar do ba
 
 **Estado atual: Fase 3.2.2 (processamento assíncrono e reprocessamento seguro).** O upload agora só aceita e registra o PDF (`pending`); a extração do texto e a geração de trechos acontecem em segundo plano, com estado consultável, reprocessamento pela API e pela interface e troca atômica do resultado. A execução em segundo plano é um pool de threads **dentro do processo, não uma fila durável** (veja "Processamento em segundo plano").
 
+**Embeddings em andamento (Etapas A, B e C).** Existem a tabela `chunk_embeddings`, a geração em segundo plano, o comando `embed-pending` e um provedor local (modelo `intfloat/multilingual-e5-small` em CPU, sem enviar texto para fora). Desligado por padrão e **sem busca semântica ainda**: a busca continua só por palavras-chave (ver "Embeddings dos trechos").
+
 **Fase 3.2.1 (estrutura de documentos: trechos, metadados e duplicatas).** Sobre a Fase 3.1 (importação de documentos), cada PDF passa a ser dividido em trechos (chunks) rastreáveis até a página de origem, o título e a organização do documento podem ser editados depois da importação, e o mesmo arquivo (SHA-256) não é importado duas vezes. **Ainda não existem embeddings, busca semântica, RAG nem OCR.**
 
 **Fase 3.1.** Importação de PDFs com armazenamento local do original e do texto extraído (por página) no PostgreSQL, listagem, visualização, download, exclusão e busca integrada às notas. Vem sobre a Fase 2 (notas, categorias, projetos, etiquetas e busca em português com índice GIN) e a Fase 1 (FastAPI, React, Alembic, pgvector preparado).
-Não há autenticação, OCR, embeddings, busca vetorial nem integração com IA ainda. O bloco "Assistente de IA" é uma reserva visual. Os documentos de exemplo do dashboard são dados de demonstração temporários e só aparecem com o backend offline.
+Não há autenticação, OCR, busca semântica nem integração com IA generativa ainda. A geração de embeddings dos trechos e o provedor local existem, mas vêm desligados por padrão e a busca continua só por palavras-chave (ver "Embeddings dos trechos"). O bloco "Assistente de IA" é uma reserva visual. Os documentos de exemplo do dashboard são dados de demonstração temporários e só aparecem com o backend offline.
 
 ## Stack
 
@@ -16,7 +18,7 @@ Não há autenticação, OCR, embeddings, busca vetorial nem integração com IA
 |---|---|
 | Frontend | React 19, TypeScript, Vite, React Router, CSS Modules + design tokens, lucide-react |
 | Backend | Python 3.11+ (testado com 3.13), FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, psycopg 3, pypdf (extração de texto), python-multipart (upload) |
-| Banco | PostgreSQL 16 + pgvector (imagem `pgvector/pgvector:pg16`) |
+| Banco | PostgreSQL 16 + pgvector 0.6.0 (imagem `pgvector/pgvector:0.6.0-pg16`) |
 | Testes | pytest (backend), Vitest + Testing Library (frontend), ESLint + `tsc` |
 
 ## Pré-requisitos
@@ -44,7 +46,7 @@ npm install
 
 ## Trechos (chunks) dos documentos
 
-Depois de extrair o texto, cada página é dividida em trechos guardados em `document_chunks`, para servirem de unidade de recuperação em fases futuras. **Não há embeddings, busca semântica nem IA nesta etapa.** A busca textual continua usando o texto das páginas, não os trechos.
+Depois de extrair o texto, cada página é dividida em trechos guardados em `document_chunks`, para servirem de unidade de recuperação em fases futuras. Os embeddings desses trechos são opcionais e vêm desligados por padrão (ver "Embeddings dos trechos"); **ainda não há busca semântica nem IA generativa.** A busca textual continua usando o texto das páginas, não os trechos.
 
 **Estratégia** (`backend/app/services/chunker.py`, função pura e testada):
 - cada página é segmentada separadamente: um trecho **nunca mistura páginas** e a sobreposição só existe dentro da mesma página;
@@ -254,6 +256,54 @@ O pool de threads **não é uma fila durável**. A fila existe só na memória d
 
 Se for preciso garantir processamento independente da vida da API (vários processos, filas persistentes, tentativas com espera), a evolução natural é um worker separado lendo a mesma tabela `documents` (o banco já é a fila) ou uma fila externa. Isso não foi feito nesta fase.
 
+## Embeddings dos trechos (em desenvolvimento)
+
+Desligados por padrão (`EMBEDDINGS_ENABLED=false`): nada é gerado e nenhuma tela ou rota muda. **Ainda não há busca semântica**: `/api/search` continua usando só palavras-chave, com ou sem vetores no banco. O `FakeEmbeddingProvider` (determinístico, lexical) continua disponível para desenvolvimento e testes (`EMBEDDING_PROVIDER=fake`).
+
+### Provedor local (modelo em CPU)
+
+Usa `intfloat/multilingual-e5-small` (licença MIT, **revisão fixa `614241f622f53c4eeff9890bdc4f31cfecc418b3`**, 384 dimensões), exportado em ONNX e executado com `onnxruntime` em `CPUExecutionProvider`.
+
+```bash
+cd backend
+pip install -r requirements-embeddings.txt          # onnxruntime 1.32.0, tokenizers 0.23.3, numpy 2.5.5 (opcionais)
+python -m app.cli download-embedding-model          # MANUAL: baixa 3 arquivos (~490 MB) e confere o SHA-256 de cada um
+# sem rede, a partir de uma cópia local:  python -m app.cli download-embedding-model --from-dir /caminho/da/copia
+# depois, no .env: EMBEDDINGS_ENABLED=true   e reinicie a API (ou rode: python -m app.cli embed-pending)
+```
+
+- **Dependências opcionais.** Quem não liga embeddings não precisa instalar nada disso: o provedor só importa os pacotes quando é criado e, se faltarem, explica o que instalar. O `pip install` do `requirements-embeddings.txt` também instala dependências indiretas (`flatbuffers`, `protobuf`, `huggingface-hub` e outras); o código do projeto **não** usa o `huggingface-hub` nem abre conexão de rede.
+- **Arquivos do modelo.** Ficam em `backend/models/multilingual-e5-small/` (`EMBEDDING_MODEL_PATH`), ignorados pelo Git. O download é sempre um comando manual, nunca roda sozinho. Cada arquivo só é aceito depois de conferir o SHA-256 (`model.onnx`: `ca456c06…bc8665`). Na carga, os três hashes são conferidos de novo, e um arquivo adulterado ou incompleto é recusado.
+- **Formato do modelo.** Trechos recebem o prefixo `passage: ` e consultas `query: `. O vetor é a média dos tokens ponderada pela máscara de atenção, normalizada em L2 (norma 1). Textos acima de 512 tokens são **truncados**; um trecho de 1200 caracteres tem em torno de 230 tokens.
+- **Privacidade.** Nenhum texto de documento sai da máquina: o modelo é carregado de um caminho local, o provedor fixa `CPUExecutionProvider` (o `onnxruntime` também lista um provedor de nuvem, que não é usado) e há um teste que bloqueia conexões de rede durante a carga e a inferência. Os únicos dados que trafegam são os arquivos públicos do modelo, e só quando você roda o comando de download. Mensagens de erro e logs trazem só o **tipo** da exceção, nunca o texto.
+- **Identificação.** Os vetores são gravados com `model = intfloat/multilingual-e5-small@614241f6`. Mudar a revisão do modelo cria outro identificador, então vetores de pesos diferentes nunca se misturam nem são reaproveitados.
+- **Recursos.** Medido neste ambiente (4 CPUs, sem GPU): carga em cerca de 2,3 s, aproximadamente 32 trechos de 1200 caracteres por segundo e pico de memória perto de **1 GB**. A instância do modelo é carregada uma vez por processo e reutilizada. Uma API e um `embed-pending` rodando ao mesmo tempo carregam o modelo cada um (cerca de 1 GB cada).
+
+### Qualidade: o que foi medido e o que não foi
+Numa amostra mínima em português (14 trechos, 16 consultas, em `backend/tests/quality_data.py`, escrita antes dos resultados e sem ajustes depois), o modelo acertou o trecho relevante em 1º lugar em **15 de 16** consultas (MRR 0,958), contra 8 de 16 (MRR 0,614) do provedor falso lexical. Nas 13 paráfrases (quase sem palavras em comum com o trecho) foram 13 de 13, contra 6 de 13. O único erro foi uma consulta em português sobre um texto em **inglês**. Isto **não prova qualidade geral**:
+
+- A amostra é pequena, curta e foi escrita por quem implementou. Não houve avaliação com documentos reais seus, e o modelo **não** foi comparado numericamente com a implementação de referência (PyTorch/sentence-transformers); a implementação própria de pooling e normalização foi validada por testes de propriedades e pelo ranking acima.
+- As similaridades do E5 ficam concentradas em uma faixa alta (aqui, entre 0,8 e 0,9) e as margens entre acerto e erro são pequenas (cerca de 0,04). Uma consulta **sem resposta** no corpus teve similaridade máxima de 0,82, no mesmo patamar dos acertos: **não é possível usar um limiar de similaridade** para decidir "achou" ou "não achou". Só a ordem do ranking é informativa.
+- O desempenho em outros assuntos, documentos longos, jargão técnico e entre idiomas ficou sem avaliação. Para busca por palavras exatas (nomes, códigos, números), a busca por palavras-chave continua a melhor opção, e é por isso que ela segue como padrão e a semântica/híbrida será opcional.
+
+**Fluxo.** Quando o processamento deixa um documento `completed`, ele é enviado a um pool próprio (`EMBEDDING_WORKERS`, padrão 1) que roda `embed_document`. O documento e seus trechos já estão utilizáveis nesse momento, e uma falha do provedor **nunca** muda o estado do documento. Cada trecho recebe um vetor em `chunk_embeddings`, com o modelo, as dimensões e o SHA-256 do texto.
+
+- **Estado derivado.** Um trecho está pendente quando não tem vetor do modelo atual. Não há coluna de estado nem fila própria: o banco é a fonte da verdade, então repetir ou retomar converge para o mesmo resultado.
+- **Lotes.** Os textos vão ao provedor em lotes de `EMBEDDING_BATCH_SIZE`, e cada lote é confirmado sozinho. Uma falha no meio preserva os lotes anteriores, e a próxima execução continua do que falta.
+- **Repetição controlada.** Só falhas passageiras (`EmbeddingTransientError`) são repetidas, até `EMBEDDING_MAX_ATTEMPTS` vezes, com espera de `EMBEDDING_RETRY_BACKOFF_SECONDS` que dobra a cada tentativa. Dimensão errada, contagem de vetores errada ou qualquer outro erro não são repetidos. Os logs e o resumo do comando trazem só ids e o **tipo** da exceção, nunca texto de documento.
+- **Sem chamadas desnecessárias.** Antes de chamar o provedor, o vetor é copiado de qualquer trecho com o mesmo texto e o mesmo modelo (inclusive de outro documento), e textos repetidos no mesmo documento são enviados uma vez. No **reprocessamento** (e no `rebuild-chunks`), os trechos são recriados com ids novos, mas os vetores dos trechos de texto idêntico são copiados dentro da própria troca atômica. Reprocessar o mesmo PDF faz 0 chamadas ao provedor; se o PDF mudou, só os trechos novos são gerados.
+- **Concorrência.** Neste processo, uma trava por documento faz a segunda tarefa simultânea desistir (`busy`). Entre processos (API e CLI ao mesmo tempo) a gravação usa `ON CONFLICT DO NOTHING`: nunca duplica nem quebra, no máximo repete uma chamada ao provedor.
+- **Trocar de modelo** torna todos os trechos pendentes de novo e os vetores antigos são substituídos. A dimensão da coluna é fixa em 384; o provedor precisa produzir exatamente isso.
+
+**Retomada.** Com `RECOVER_ON_STARTUP=true`, a inicialização envia à geração todo documento `completed` que ainda tenha trechos sem vetor. O pool é em memória, **não** uma fila durável: o que estava na fila ou em curso ao cair é retomado na próxima inicialização, ou à mão:
+
+```bash
+python -m app.cli embed-pending                      # todos os documentos com trechos sem vetor
+python -m app.cli embed-pending --document-id UUID   # apenas um documento
+```
+
+O comando é idempotente, imprime `N documento(s) tratado(s), G vetor(es) gerado(s), R trecho(s) reaproveitado(s), F falha(s).` e termina com código 1 se houve falha, ou 2 se os embeddings estão desligados ou o provedor está indisponível. O `process-pending` não dispara embeddings: rode o `embed-pending` depois. Com o provedor `local`, o `embed-pending` carrega o modelo (cerca de 1 GB) no próprio processo do comando.
+
 ## Modelo de dados
 
 ```
@@ -284,6 +334,7 @@ Nomes únicos por índice em `lower(name)` e restrição que impede nome em bran
 | `0004` | coluna `search_vector`, preenchimento das notas existentes e índice GIN |
 | `0005` | `documents`, `document_pages`, `document_tags`, índices e restrições (não depende de pgvector) |
 | `0006` | `document_chunks` e índice **único** em `documents.sha256` (não depende de pgvector). Se já existirem documentos com o mesmo hash, a migration aborta antes de alterar qualquer coisa, listando os grupos; exclua as cópias e rode de novo |
+| `0007` | `chunk_embeddings`: um `vector(384)` por trecho, hash do texto, modelo e dimensões, com índice HNSW por cosseno. **Exige pgvector ≥ 0.5** e nasce vazia; o `downgrade` apaga os vetores (derivados, regeráveis) |
 
 ## Testes
 
@@ -317,7 +368,7 @@ cd frontend && npm test && npm run typecheck && npm run lint && npm run build
 - O `search_vector` é recalculado pela aplicação a cada escrita. Alterações feitas direto no banco, fora da API, não atualizam o índice.
 - A busca com termo exige PostgreSQL (retorna 503 em outros bancos). Listagem e filtros funcionam em qualquer banco.
 - O conteúdo da nota é texto simples (sem Markdown renderizado).
-- A migration `0002` (pgvector) exige a extensão instalada; use a imagem `pgvector/pgvector:pg16` do Docker Compose.
+- A migration `0002` (pgvector) exige a extensão instalada; use a imagem `pgvector/pgvector:0.6.0-pg16` do Docker Compose.
 - Sem autenticação: o projeto assume uso local por uma única pessoa.
 
 ## Documentação
